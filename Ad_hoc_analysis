@@ -165,7 +165,7 @@ if(lvl == "County"){
     theme_light()
 
   print(plt)
-  print(tail(data,10))
+  return(tbl_df(data))
 
 }
 
