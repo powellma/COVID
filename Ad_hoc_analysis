@@ -1,0 +1,411 @@
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+library(readr)
+
+library(ggthemes)
+
+install.packages("usmaps")
+
+R.version
+
+#######################################################################################################################################
+## Gathring Global Data
+#######################################################################################################################################
+
+COVID_Global<- tbl_df(read_csv("https://covid.ourworldindata.org/data/owid-covid-data.csv"))
+str(COVID_Global)
+
+
+head(COVID_Global %>% filter(iso_code == "USA", date> "2020-04-01"))
+
+#######################################################################################################################################
+## Gathring US Data
+#######################################################################################################################################
+
+pop_URL<- "https://www2.census.gov/programs-surveys/popest/datasets/2010-2019/counties/totals/co-est2019-alldata.csv"
+US_pop<-tbl_df(read.csv(pop_URL))[,c(1:7, 19)]
+
+filter(US_pop, SUMLEV == 40)
+
+US_pop<-US_pop %>% select(STNAME, CTYNAME, POPESTIMATE2019)
+
+names(US_pop)<-c("state", "county", "pop")
+
+state_data_pop<-tbl_df(merge(state_data, US_pop[, c( "county", "pop")], by.x = "state", by.y = "county")) %>% 
+  arrange(state, date) 
+
+state_data_pop<-tbl_df(merge(state_data, US_pop[, c( "county", "pop")], by.x = "state", by.y = "county")) %>% 
+  arrange(state, date) 
+
+state_data_pop %>% group_by(state) %>% summarise(pop = mean(pop)) %>% arrange(desc(pop))
+##Looks good!!
+
+US_pop%>% filter(county =="Cook")
+
+
+US_COVID_df$county<-paste(US_COVID_df$county, "County")
+
+US_COVID_df[2,2]
+
+US_COVID_df_pop<-merge(US_COVID_df, US_pop, by.x = "county", by.y = "county") %>% 
+  arrange(date)
+
+US_pop
+
+US_COVID_df_pop
+
+tail(US_COVID_df_pop %>% arrange(date))
+
+#######################################################################################################################################
+## Relaod US Date 
+#######################################################################################################################################
+
+reset_state_data<-function(){
+  US_COVID_df  <<-tbl_df(read_csv("https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties.csv"))
+  state_data <<- tbl_df(US_COVID_df %>% group_by(date, state) %>% summarise(total_cases = sum(cases), total_deaths = sum(deaths)))
+  
+  pop_URL<- "https://www2.census.gov/programs-surveys/popest/datasets/2010-2019/counties/totals/co-est2019-alldata.csv"
+  US_pop<-tbl_df(read.csv(pop_URL)) %>% select(STNAME, CTYNAME, POPESTIMATE2019)
+  names(US_pop)<-c("state", "county", "pop")
+  
+  state_data_pop<<-tbl_df(merge(state_data, US_pop[, c( "county", "pop")], by.x = "state", by.y = "county")) %>% 
+    arrange(state, date) 
+}
+
+reset_state_data()
+
+head(state_data_pop)
+
+tail(state_data_pop %>% group_by(date) %>% 
+       summarize(state = "USA", cases = sum(total_cases), deaths = sum(total_deaths), pop = max(sum(pop))))
+
+#######################################################################################################################################
+## Check States
+#######################################################################################################################################
+
+check_state <- function(lookup = "USA", metric = "Cases", mult = 25){
+  if(lookup == "USA"){
+    
+    data <- state_data_pop %>% group_by(date) %>% 
+      summarize(state = "USA", 
+                cases = sum(total_cases), 
+                deaths = sum(total_deaths), 
+                pop = sum(pop))
+    
+    data<-data.frame(data[,c(2,1,3,4,5)])
+    
+  }else{
+    data<-data.frame(state_data_pop%>% filter(state == lookup))
+  }
+  
+  m <- ifelse(metric == "Cases", 3, 4)
+  data<-data[, c(1, 2, 5, m)]
+  names(data)<-c("state", "Date", "pop", "value")
+  c<-c(data[,4])
+  
+  d<-c-lag(c)
+  data$new<-d
+  data[1,5]<-data[1,4]
+  print(tail(data,8))
+  
+  
+  ggplot(data) +
+    geom_col(aes(x=Date, y = new*mult)) +
+    geom_line(aes(x=Date, y = value))+
+    scale_y_continuous(
+      name = paste("Total", metric),
+      sec.axis = sec_axis(~ . / mult, name=paste("New", metric)))+
+    ggtitle(paste("COVID-19", metric, "Trend:", lookup))+
+    theme_light()
+}
+
+check_state("Texas", metric = "Deaths", mult =40)
+
+check_county <- function(lookup = "USA", st = "New York", metric = "Cases", mult = 25){
+  if(lookup == "USA"){
+    
+    data <- state_data_pop %>% group_by(date) %>% 
+      summarize(state = "USA", 
+                cases = sum(total_cases), 
+                deaths = sum(total_deaths), 
+                pop = sum(pop))
+    
+    data<-data.frame(data[,c(2,1,3,4,5)])
+    
+  }else{
+    data<-data.frame(US_COVID_df%>% filter(county == lookup, state == st )) %>% arrange(state, date)
+  }
+  
+  m <- ifelse(metric == "Cases", 5, 6)
+  data<-data[, c(3, 2, 1, m)]
+  names(data)<-c("state", "county", "Date", "value")
+  c<-c(data[,4])
+  
+  d<-c-lag(c)
+  data$new<-d
+  data[1,5]<-data[1,4]
+  print(tail(data,8))
+  
+  
+  ggplot(data) +
+    geom_col(aes(x=Date, y = new*mult)) +
+    geom_line(aes(x=Date, y = value))+
+    scale_y_continuous(
+      name = paste("Total", metric),
+      sec.axis = sec_axis(~ . / mult, name=paste("New", metric)))+
+    ggtitle(paste("COVID-19", metric, "Trend:", lookup))+
+    theme_light()
+}
+
+check_county(lookup = "Westchester", st = "New York")
+
+
+{states<-c('Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California', 
+          'Colorado', 'Connecticut', 'Delaware', 'District of Columbia', 
+          'Florida', 'Georgia', 'Hawaii', 'Idaho', 'Illinois', 'Indiana', 
+          'Iowa', 'Kansas', 'Kentucky', 'Louisiana', 'Maine', 'Maryland', 
+          'Massachusetts', 'Michigan', 'Minnesota', 'Mississippi', 'Missouri', 
+          'Montana', 'Nebraska', 'Nevada', 'New Hampshire', 'New Jersey', 
+          'New Mexico', 'New York', 'North Carolina', 'North Dakota', 'Ohio', 
+          'Oklahoma', 'Oregon', 'Pennsylvania', 'Puerto Rico', 'Rhode Island', 
+          'South Carolina', 'South Dakota', 'Tennessee', 'Texas', 'Utah', 
+          'Vermont', 'Virginia', 'Washington', 'West Virginia', 'Wisconsin', 
+          'Wyoming')
+
+abr<-c('AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'DC', 'FL', 'GA', 'HI', 
+       'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD', 'MA', 'MI', 'MN', 
+       'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ', 'NM', 'NY', 'NC', 'ND', 'OH', 
+       'OK', 'OR', 'PA', 'PR', 'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 
+       'WA', 'WV', 'WI', 'WY')
+
+state_abr<-tbl_df(cbind(states,abr))
+}
+
+delayed_growth<-function(State="USA", County = NULL, metric = "Cases", delay = 3, g = "#"){
+  
+  if(!is.null(County)){
+    label <- paste(County, ", ", state_abr$abr[state_abr$states == State], sep = "")
+  }else{
+    label <- State
+  }
+  
+  if(!is.null(County)){
+    
+    data<- US_COVID_df %>% filter(county == County, state == State) %>% group_by(date) %>% 
+      summarize(location = label,
+                cases = sum(cases),
+                deaths = sum(deaths),
+                pop = 0)
+    
+    data<-data.frame(data[,c(2,1,3,4,5)])
+    
+  }else{
+    
+    if(State == "USA"){
+      
+      data <- state_data_pop %>% group_by(date) %>% 
+        summarize(location = label, 
+                  cases = sum(total_cases), 
+                  deaths = sum(total_deaths), 
+                  pop = sum(pop))
+      
+      data<-data.frame(data[,c(2,1,3,4,5)])
+    }else{
+      data<-data.frame(state_data_pop%>% filter(state == State))
+    }}
+  
+  m <- ifelse(metric == "Cases", 3, 4)
+  data<-data.frame(data[, c(1, 2, 5, m)])
+  names(data)<-c("Location", "Date", "pop", "value")
+  c<-c(data[,4])
+  c_hc<<-c
+  
+  d<-lag(c, delay)
+  
+  e<-(c-d)
+  
+  e[1:delay]<-0
+  
+  if(g == "%"){
+    e<-e/c
+  }
+  
+  data$g<-e
+  df_hc <<- data
+  plt<-ggplot(data, aes(x = Date))+
+    geom_col(aes(y = g))+
+    ggtitle(paste(label, metric, "Growth over", delay, "days"))+
+    ylab("New Cases")+
+    theme_light()
+  
+  print(plt)
+  print(tail(data,10))
+}
+
+delayed_growth(State = "Texas", delay = 7, g = "#", metric = "Cases")
+
+reset_state_data()
+
+#######################################################################################################################################
+##Comparing new cases to toal cases
+#######################################################################################################################################
+
+log_v_log_plot<-function(locations, log_lev = 'log2'){
+  b<-data.frame()
+  
+  for(l in locations){
+    a       <-state_data[,-4] %>% filter(state == l)
+    new     <-a$total_cases-lag(a$total_cases, 3)
+    cases   <-a$total_cases
+    State     <- rep(l, length(cases))
+    b       <-rbind(b,na.omit(cbind(State, tbl_df(cbind(cases, new)))))
+    print("-------------------------------")
+    
+  }
+  log_plot <- ggplot(b, aes(x = cases, y = new, group = State, col = State))+geom_path()+ggtitle(paste("US Corona Virus Cases by State"))
+  
+  if(log_lev != FALSE){
+    log_plot <- log_plot + scale_x_continuous(trans = log_lev) + scale_y_continuous(trans = log_lev)  
+    
+  }  
+  
+  print(log_plot)
+  
+}
+
+imp_states<-c("Michigan", "California", "Texas", "Florida", "Georgia", "Arkansas")
+
+log_v_log_plot(locations = imp_states, log_lev = 'log2' )
+
+#######################################################################################################################################
+##tracking daily new cases/total cases
+#######################################################################################################################################
+
+new_cases<-function(trend="New", locations = check_states, metric = "cases", logged = FALSE){
+  b<-data.frame()
+  
+  for(l in locations){
+    
+    if(metric == "cases"){
+      a<-state_data[,-4] %>% filter(state == l)
+    }else{
+      a<-state_data[,-3] %>% filter(state == l)
+    }
+    
+    if(trend=="New"){
+      c <- a[,3]-lag(unlist(a[,3]))
+    }else{
+      c <- a[,3]
+    }
+    b_layer<-tbl_df(cbind(a[,1], c, l))
+    b <- rbind(b,b_layer)
+    
+  }
+  
+  b <- na.omit(b)
+  names(b)<-c("Date", "Value", "State")  
+  p<-ggplot(b, aes(x=Date, y = Value, group = State, col = State))+geom_path()
+  
+  if(logged != FALSE){
+    p <- p + scale_y_continuous(trans = logged) 
+  }
+  
+  print(p)
+  print(b)
+}
+
+new_cases(trend = "New", metric = "death", locations = levels(state_data$state))
+
+protest_states<-c("Colorado", "Georgia", "Tennessee", "Florida", "Idaho", "Wisconsin")
+
+early_states<-c("Texas", "Florida", "Georgia")
+
+new_cases(trend = "New", metric = "Cases", locations = early_states)
+
+state_data_pop %>% filter(date == max(state_data_pop$date))
+
+#######################################################################################################################################
+##Plotting on US Map
+#######################################################################################################################################
+
+state_data_pop
+
+state_growth_plot<-function(metric = "Cases", delay = 7){
+  
+  m<-ifelse(metric == "Cases", 3,4)
+  
+  a<-state_data_pop[state_data$date == max(state_data$date),m]
+  b<-state_data_pop[state_data$date == max(state_data$date)-delay,m]
+  p<-state_data_pop[state_data$date == max(state_data$date),5] 
+  
+  c<-(a-b)/p
+  
+  c[,2]<-state_data[state_data$date == max(state_data$date),2]
+  
+  map<-plot_usmap(data = c, values = "total_cases", color = "black") + 
+    scale_fill_continuous(name = "Covid Growth Rate") + 
+    theme(legend.position = "right")
+  print(map)  
+  
+}
+
+library(usmap)
+
+state_growth_plot()
+
+
+
+View(US_COVID_df %>% arrange( fips))
+
+View(US_COVID_df %>% filter(state == "New York", date == "2020-05-06"))
+
+
+county_growth_plot<-function(metric = "Cases", delay = 7){
+  
+  a<-US_COVID_df[US_COVID_df$date == max(state_data$date),4:5]
+  b<-US_COVID_df[US_COVID_df$date == max(state_data$date)-delay,4:5]
+  
+  c<-tbl_df(merge(b,a, by.x = "fips", by.y = "fips"))
+  
+  names(c)<-c("fips", "old", "new")
+  
+  c$g<-c$new/c$old - 1
+  
+  print(c %>% arrange(g))
+  
+  # map<-plot_usmap(data = c, values = "total_cases", color = "black") + 
+  #   scale_fill_continuous(name = "Covid Growth Rate") + 
+  #   theme(legend.position = "right")
+  # print(map)  
+  
+}
+
+county_growth_plot()
+
+58/43-1
+
+
+
+
+View(US_pop %>% filter(state=="New York"))
+
+
+
+todays_data<-US_COVID_df %>% filter(date == max(US_COVID_df$date))
+
+todays_data
+
+plot_usmap(regions = "counties", data = todays_data, values = "cases", 
+           include = c("NY")) + 
+  scale_fill_continuous(name = "Covid Growth Rate", type = "viridis")
+
+plot_usmap(regions = "counties", data = US_pop, values = "pop", 
+           include = c("NY")) + 
+  scale_fill_continuous(name = "Covid Growth Rate", type = "viridis")
+
+US_pop
+
+
+state_growth_plot()
+
