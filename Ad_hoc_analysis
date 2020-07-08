@@ -66,7 +66,7 @@ remove(abr,fips,State)
 #--------------------------------------------------------------------------------------------------------------------#
 
 reset_COVID_data<-function(){
-  
+  start_time<-Sys.time()
   ##Load county Data
   raw_data<<-tbl_df(read_csv("https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties.csv"))
   ##Merge in Population
@@ -116,16 +116,15 @@ reset_COVID_data<-function(){
   US_COVID_df<<-rbind(county_data, state_data, US_data) %>% arrange(Date, County, State)
   
   
-  print(tail(county_data %>% arrange(Date, Cases)))
-  print(tail(state_data  %>% arrange(Date, Cases)))
+  print(head(county_data %>% arrange(desc(Date), desc(Cases))))
+  print(head(state_data  %>% arrange(desc(Date), desc(Cases))))
   print(tail(US_data))
-  
+  print(paste("Data as of ", max(US_data$Date), sep =""))
+  print(Sys.time()-start_time)
   
 }
 
-
 reset_COVID_data()
-
 
 #######################################################################################################################################
 ## Check States
@@ -184,29 +183,16 @@ New_COVID_Trend<-function(state = "New York", county = "New York City", days = 7
   
 }
 
-New_COVID_Trend(lvl = "County", days = 1, metric = "Cases")
+New_COVID_Trend(lvl = "Country", days = 7, metric = "Cases")
+New_COVID_Trend(lvl = "State", days = 7, metric = "Cases")
 New_COVID_Trend(lvl = "County", days = 7, metric = "Cases")
 
-New_COVID_Trend(lvl = "County", days = 1, metric = "Deaths")
-New_COVID_Trend(lvl = "County", days = 7, metric = "Deaths")
-
-
-New_COVID_Trend(county = "York", state = "Maine", lvl = "State", days = 1, metric = "Cases")
-New_COVID_Trend(county = "York", state = "Maine", lvl = "State", days = 7, metric = "Cases")
-
-New_COVID_Trend(county = "York", state = "Maine", lvl = "County", days = 1, metric = "Cases")
-New_COVID_Trend(county = "York", state = "Maine", lvl = "County", days = 7, metric = "Cases")
-
-
-New_COVID_Trend(lvl = "State", days = 1, metric = "Deaths")
-New_COVID_Trend(lvl = "State", days = 7, metric = "Deaths")
-
-
 New_COVID_Trend(lvl = "Country", days = 1, metric = "Cases")
-New_COVID_Trend(lvl = "Country", days = 7, metric = "Cases")
+New_COVID_Trend(lvl = "State", days = 1, metric = "Cases")
+New_COVID_Trend(lvl = "County", days = 1, metric = "Cases")
 
-New_COVID_Trend(lvl = "Country", days = 1, metric = "Deaths")
-New_COVID_Trend(lvl = "Country", days = 7, metric = "Deaths")
+New_COVID_Trend(state = "North Carolina", county = "Fulton", lvl = "State", days = 7, metric = "Cases")
+
 
 #######################################################################################################################################
 ## compare states
@@ -253,7 +239,7 @@ compare_lags<-function(locations, level = "County", delay = 7, unit = "Cases"){
   
   log_df$g<-round((log_df$New/log_df$`New-14`),3)
   
-  print(head(log_df %>% arrange(desc(g)),10))
+  print(head(log_df %>% arrange(desc(New)),10))
   print(paste("Pulled ", nrow(log_df), " locations and ", nrow(data_df), " instances in:", sep = ""))
   print(Sys.time()-start_time)
   
@@ -268,53 +254,7 @@ compare_lags<-function(locations, level = "County", delay = 7, unit = "Cases"){
   invisible(output)
 }
 
-Jul7_7
+Jul7_S<-compare_lags(locations = state_list, unit = "Cases", level = "State")
+Jul7_C<-compare_lags(locations = abr_county_list, delay = 7)
 
-View(abr_county_list)
-
-Jul7_7<-compare_lags(locations = state_list, unit = "Cases", level = "State")
-Jul7_3<-compare_lags(locations = state_list, unit = "Cases", level = "State", delay = 3)
-Jul7_7<-compare_lags(locations = abr_county_list, delay = 7)
-
-Jul7_7[[1]] %>% arrange(desc(New))
-
-Jul6_7[[1]] %>% arrange(desc(New))
-Jul6_7[[1]] %>% arrange(desc(g))
-
-Jul6_3[[1]] %>% arrange(desc(New))
-Jul6_3[[1]] %>% arrange(desc(g))
-
-View(Jul3_1[[1]] %>% arrange(desc(g)))
-
-state_COVID_log$g<-round((state_COVID_log$New/state_COVID_log$`New-14`)*100)/100
-head(state_COVID_log %>% arrange(desc(g)),10)
-
-county_COVID_log$g<-abs(round(county_COVID_log$New*100/county_COVID_log$`New-14`)/100)
-county_COVID_log %>% arrange(desc(g))
-
-plot_usmap(data = county_COVID_log, values = "g", regions = "counties") + scale_fill_viridis_c()
-
-plot_usmap(data = State_data[State_data$Date == max(State_data$Date),], values = "Deaths", 
-           regions = "state") + scale_fill_viridis_c()
-
-names(State_data)[4]<-"nt FIPS"
-
-Jul5_7[[1]] %>% arrange(desc(g))
-
-b<-Sys.time()
-
-substr(Jul3_1[[1]]$Location)
-
-test_county<-"Will, IL"
-
-substr(Jul3_1[[1]]$Location, nchar(Jul3_1[[1]]$Location)-2+1, nchar(Jul3_1[[1]]$Location))
-
-substrRight <- function(x, n){
-  substr(x, nchar(x)-n+1, nchar(x))
-}
-
-substrRight(Jul3_1[[1]]$Location, 2)
-
-Jul3_1[[1]]$Location
-
-Jul3_1[[1]]$State<-Jul3_1[[1]] %>% mutate(state = substrRight(Location, 2)) 
+Jul7_S[[1]] %>% mutate(new_pop = (New/Pop)*1000) %>% arrange(desc(new_pop))
