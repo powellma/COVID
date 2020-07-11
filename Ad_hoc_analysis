@@ -60,7 +60,7 @@ fips   <-c(01, 02, 04, 05, 06, 08, 09, 10, 12, 13, 15, 16, 17, 18, 19, 20, 21, 2
 
 
 state_abr<-tbl_df(cbind(State,abr,fips))
-remove(abr,fips,State)
+remove(abr,fips,State, county_pop_URL)
 }
 
 #--------------------------------------------------------------------------------------------------------------------#
@@ -126,7 +126,7 @@ reset_COVID_data<-function(){
 
 reset_COVID_data()
 
-#######################################################################################################################################
+#####################################################################################################################################
 ## Check States
 #######################################################################################################################################
 
@@ -183,15 +183,19 @@ New_COVID_Trend<-function(state = "New York", county = "New York City", days = 7
   
 }
 
-New_COVID_Trend(lvl = "Country", days = 7, metric = "Cases")
-New_COVID_Trend(lvl = "State", days = 7, metric = "Cases")
-New_COVID_Trend(lvl = "County", days = 7, metric = "Cases")
+New_COVID_Trend(state = "California", lvl = "State", days = 7, metric = "Deaths")
+New_COVID_Trend(state = "California", county = "Los Angeles", lvl = "County", days = 7, metric = "Cases")
 
-New_COVID_Trend(lvl = "Country", days = 1, metric = "Cases")
-New_COVID_Trend(lvl = "State", days = 1, metric = "Cases")
+New_COVID_Trend(lvl = "State", days = 7, metric = "Cases", state = "West Virginia")
 New_COVID_Trend(lvl = "County", days = 1, metric = "Cases")
 
-New_COVID_Trend(state = "North Carolina", county = "Fulton", lvl = "State", days = 7, metric = "Cases")
+
+New_COVID_Trend(state = "Florida", lvl = "State", days = 7, metric = "Deaths")
+
+New_COVID_Trend(lvl = "Country", days = 1, metric = "Cases")
+New_COVID_Trend(state = "Florida", lvl = "State", days = 7, metric = "Deaths")
+New_COVID_Trend(lvl = "County", days = 1, metric = "Cases")
+
 
 
 #######################################################################################################################################
@@ -203,15 +207,23 @@ New_COVID_Trend(state = "North Carolina", county = "Fulton", lvl = "State", days
   state_list<-state_list[-c(9,12,37,50,42)]
   state_list
   m<-County_data %>% filter(Date == max(County_data$Date))
-  m<-m %>% filter(Cases > 5000) %>% arrange(desc(Cases))
+  m<-m %>% filter(Cases > 50) %>% arrange(desc(Cases))
   m$cs<-paste(m$County, ",",m$State)
   county_list<-m[!duplicated(m$cs),]
   county_list<-county_list %>% filter(County != "Unknown") %>% select("County", "State")
   nrow(county_list)
   remove(m)
-  abr_county_list<-head(county_list, 200)
+  abr_county_list<-head(county_list, 1000)
 }
 
+
+plot_usmap(regions = "county", data = countypov, value = "pct_pov_2014")
+
+countypov
+
+county_list
+
+countypop[county_g$fips == countypop]
 
 compare_lags<-function(locations, level = "County", delay = 7, unit = "Cases"){
   data_df<-data.frame()  
@@ -255,6 +267,16 @@ compare_lags<-function(locations, level = "County", delay = 7, unit = "Cases"){
 }
 
 Jul7_S<-compare_lags(locations = state_list, unit = "Cases", level = "State")
-Jul7_C<-compare_lags(locations = abr_county_list, delay = 7)
+Jul7_C<-compare_lags(locations = county_list, delay = 7)
+
+Jul7_S[[1]] %>% arrange(desc(g))
+county_g<-Jul7_C[[1]] %>% arrange(desc(g))
 
 Jul7_S[[1]] %>% mutate(new_pop = (New/Pop)*1000) %>% arrange(desc(new_pop))
+
+Jul7_S[[1]] %>% plot_usmap(values = "New", regions = "state") + scale_fill_viridis_c()
+
+
+
+
+
